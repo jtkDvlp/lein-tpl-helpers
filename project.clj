@@ -1,4 +1,4 @@
-(defproject net.clojars.jtkdvlp/lein-tpl-helpers "1.0.0"
+(defproject net.clojars.jtkdvlp/lein-tpl-helpers "1.0.1"
   :description
   "Helpers to work / create leiningen templates"
 
