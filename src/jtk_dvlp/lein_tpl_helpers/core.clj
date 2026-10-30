@@ -51,8 +51,9 @@
 
 (defn- template-relativize
   [file]
-  (-> *template-dir*
-      (relativize file)))
+  (->> file
+       (relativize *template-dir*)
+       (relativize ".")))
 
 (defn- matches-file?
   [file extension]
@@ -65,8 +66,8 @@
        (first)
        (some?)))
 
-(def ^:private edn-like-extensions
-  [".clj" ".cljs" ".cljc" ".edn"])
+(def ^:private template-extensions
+  [".clj" ".cljs" ".cljc" ".edn" ".json"])
 
 (def ^:private ignorable-extensions
   [".DS_Store" ".~undo-tree~"])
@@ -82,7 +83,7 @@
   [template-src data-map]
   (let [parser-options
         (cond-> stencil-parser/parser-defaults
-          (matches-ext? template-src edn-like-extensions)
+          (matches-ext? template-src template-extensions)
           (assoc :tag-open "<%", :tag-close "%>"))]
 
     (-> (io/file *template-dir* template-src)
@@ -116,8 +117,8 @@
   (doseq [template-file (template-files path)
           :let [relative-file (template-relativize template-file)]]
     (cond
-      (exclude? (.getPath relative-file))
-      (debug "Skip file" (.getPath relative-file))
+      (exclude? relative-file)
+      (debug "Skip file" relative-file)
 
       (.isFile template-file)
       (generate-file! relative-file data)
@@ -127,10 +128,13 @@
 
 (defn- expand-directory
   [file-or-dir]
-  (debug "Expand directory" file-or-dir)
-  (if (.isDirectory file-or-dir)
-    (file-seq file-or-dir)
-    [file-or-dir]))
+  (let [real-path
+        (io/file *template-dir* file-or-dir)]
+
+    (if (.isDirectory real-path)
+      (->> (file-seq real-path)
+           (map (partial relativize *template-dir*)))
+      [file-or-dir])))
 
 (defn excludes
   [opts-files opts]
@@ -254,10 +258,7 @@
 (defn generate-project!
   [feature-files name features]
   (let [template-data
-        (project-data name features)
-
-        excludes
-        (excludes feature-files features)]
+        (project-data name features)]
 
     (binding [*template-dir*
               (template-dir "leiningen/new/project")
@@ -265,17 +266,20 @@
               *project-dir*
               (project-dir template-data)]
 
-      (info "Generating fresh project")
-      (debug "Generating fresh project:"
-             (ppstr {:name name
-                     :feature-files feature-files
-                     :features features
-                     :excludes excludes
-                     :template-data template-data
-                     :*template-dir* *template-dir*
-                     :*project-dir* *project-dir*}))
+      (let [excludes
+            (excludes feature-files features)]
 
-      (generate-structure! "." excludes template-data))))
+        (info "Generating fresh project")
+        (debug "Generating fresh project:"
+               (ppstr {:name name
+                       :feature-files feature-files
+                       :features features
+                       :excludes excludes
+                       :template-data template-data
+                       :*template-dir* *template-dir*
+                       :*project-dir* *project-dir*}))
+
+        (generate-structure! "." excludes template-data)))))
 
 (defn- stream-to-fn
   [fun stream]
