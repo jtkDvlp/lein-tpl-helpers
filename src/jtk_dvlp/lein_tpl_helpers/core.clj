@@ -1,6 +1,6 @@
 (ns jtk-dvlp.lein-tpl-helpers.core
   (:require
-   [clojure.set :refer [difference]]
+   [clojure.set :refer [union difference]]
    [clojure.string :as str]
    [clojure.java.io :as io]
    [clojure.java.classpath :as cp]
@@ -66,11 +66,14 @@
        (first)
        (some?)))
 
-(def ^:private template-extensions
-  [".clj" ".cljs" ".cljc" ".edn" ".json"])
+(def ^:private edn-like-extensions
+  #{".clj" ".cljs" ".cljc" ".edn"})
+
+(def ^:private renderable-extensions
+  (union edn-like-extensions #{".json"}))
 
 (def ^:private ignorable-extensions
-  [".DS_Store" ".~undo-tree~"])
+  #{".DS_Store" ".~undo-tree~"})
 
 (defn- template-files
   [path]
@@ -83,7 +86,7 @@
   [template-src data-map]
   (let [parser-options
         (cond-> stencil-parser/parser-defaults
-          (matches-ext? template-src template-extensions)
+          (matches-ext? template-src renderable-extensions)
           (assoc :tag-open "<%", :tag-close "%>"))]
 
     (-> (io/file *template-dir* template-src)
